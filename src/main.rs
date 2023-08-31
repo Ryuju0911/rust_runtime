@@ -1,5 +1,6 @@
-use std::path::PathBuf;
+use std::{path::PathBuf, fs};
 
+use::anyhow::Result;
 use clap::{Parser, Subcommand};
 
 use rust_runtime::create;
@@ -21,7 +22,11 @@ enum SubCommand {
     Create(create::Create),
 }
 
-fn main() {
+fn main() -> Result<(), anyhow::Error>{
     let opts = Opts::parse();
-    println!("Input command is {:?}", opts.subcmd)
+    let root_path = PathBuf::from(&opts.root);
+    fs::create_dir_all(&root_path)?;
+    match opts.subcmd {
+        SubCommand::Create(create) => create.exec(root_path)
+    }
 }

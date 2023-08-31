@@ -1,6 +1,9 @@
-use std::path::PathBuf;
+use std::{path::PathBuf, fs};
 
-use crate::container::State;
+use anyhow::Result;
+
+use crate::container::{ContainerStatus, State};
+
 
 #[derive(Debug)]
 pub struct Container {
@@ -9,5 +12,18 @@ pub struct Container {
 }
 
 impl Container {
-  pub fn new() {}
+  pub fn new(
+    container_id: &str,
+    status: ContainerStatus,
+    pid: Option<i32>,
+    bundle: &str,
+    container_root: &PathBuf,
+  ) -> Result<Self> {
+    let container_root = fs::canonicalize(container_root)?;
+    let state = State::new(container_id, status, pid, bundle);
+    Ok(Self {
+      state,
+      root: container_root,
+    })
+  }
 }
