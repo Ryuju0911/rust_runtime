@@ -34,4 +34,8 @@ impl Container {
   pub fn status(&self) -> ContainerStatus {
     self.state.status
   }
+
+  pub fn save(&self) -> Result<()> {
+    self.state.save(&self.root)
+  }
 }

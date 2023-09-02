@@ -1,6 +1,9 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, path::PathBuf, fs::{self, File}};
 
+use anyhow::Result;
 use serde::{Deserialize, Serialize};
+
+const STATE_FILE_PATH: &str = "state.json";
 
 #[derive(Serialize, Deserialize, Debug, Copy, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -48,5 +51,26 @@ impl State {
       bundle: bundle.to_string(),
       annotations: HashMap::default(),
     }
+  }
+
+  pub fn save(&self, container_root: &PathBuf) -> Result<()> {
+    let state_file_path = container_root.join(STATE_FILE_PATH);
+    let file = fs::OpenOptions::new()
+      .read(true)
+      .write(true)
+      .append(false)
+      .create(true)
+      .truncate(true)
+      .open(state_file_path)
+      .expect("Unable to open");
+    serde_json::to_writer(&file, self)?;
+    Ok(())
+  }
+
+  pub fn load(container_root: &PathBuf) -> Result<Self> {
+    let state_file_path = container_root.join(STATE_FILE_PATH);
+    let file = File::open(state_file_path)?;
+    let state: Self = serde_json::from_reader(&file)?;
+    Ok(state)
   }
 }

@@ -37,7 +37,8 @@ impl Create {
       None,
       self.bundle.to_str().unwrap(),
       &container_dir,
-    );
+    )?;
+    container.save()?;
     Ok(())
   }
 }
