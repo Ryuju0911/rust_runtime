@@ -26,4 +26,12 @@ impl Container {
       root: container_root,
     })
   }
+
+  pub fn id(&self) -> &str {
+    self.state.id.as_str()
+  }
+
+  pub fn status(&self) -> ContainerStatus {
+    self.state.status
+  }
 }
