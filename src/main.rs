@@ -22,8 +22,18 @@ enum SubCommand {
     Create(create::Create),
 }
 
-fn main() -> Result<(), anyhow::Error>{
+impl SubCommand {
+    fn get_container_id(&self) -> &String {
+        match &self {
+            SubCommand::Create(create) => &create.container_id,
+        }
+    }
+}
+
+fn main() -> Result<()> {
     let opts = Opts::parse();
+    rust_runtime::logger::init(opts.subcmd.get_container_id().as_str(), opts.log)?;
+
     let root_path = PathBuf::from(&opts.root);
     fs::create_dir_all(&root_path)?;
     match opts.subcmd {
