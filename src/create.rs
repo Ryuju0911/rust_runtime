@@ -5,6 +5,8 @@ use clap::Parser;
 use nix::unistd;
 
 use crate::container::{Container, ContainerStatus};
+use crate::notify_socket::NotifyListener;
+use crate::spec;
 
 #[derive(Parser, Debug)]
 pub struct Create {
@@ -28,6 +30,8 @@ impl Create {
 
         unistd::chdir(&self.bundle)?;
 
+        let spec = spec::Spec::load("config.json")?;
+
         let container_dir = fs::canonicalize(container_dir)?;
         unistd::chdir(&*container_dir)?;
 
@@ -39,6 +43,11 @@ impl Create {
             &container_dir,
         )?;
         container.save()?;
+
+        let mut notify_socket: NotifyListener = NotifyListener::new(&container_dir)?;
+
+        let rootfs = fs::canonicalize(&spec.root.path)?;
+
         Ok(())
     }
 }
