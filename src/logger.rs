@@ -86,14 +86,14 @@ impl Log for YoukiLogger {
         if self.enabled(record.metadata()) {
             let log_msg = match (record.file(), record.line()) {
                 (Some(file), Some(line)) => json!({
-                  "log": format!("[{} {}:{}] {}\r\n", record.level(), file, line, record.args()),
-                            "stream": "stdout",
-                            "time": chrono::Local::now().to_rfc3339()
+                    "log": format!("[{} {}:{}] {}\r\n", record.level(), file, line, record.args()),
+                    "stream": "stdout",
+                    "time": chrono::Local::now().to_rfc3339()
                 }),
                 (_, _) => json!({
-                  "log": format!("[{}] {}\r\n", record.level(), record.args()),
-                  "stream": "stdout",
-                  "time": chrono::Local::now().to_rfc3339()
+                    "log": format!("[{}] {}\r\n", record.level(), record.args()),
+                    "stream": "stdout",
+                    "time": chrono::Local::now().to_rfc3339()
                 }),
             };
             if let Some(mut log_file) = LOG_FILE.get().unwrap().as_ref() {

@@ -1,6 +1,6 @@
 use std::{path::PathBuf, fs};
 
-use::anyhow::Result;
+use anyhow::Result;
 use clap::{Parser, Subcommand};
 
 use rust_runtime::create;
