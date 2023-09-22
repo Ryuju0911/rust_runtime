@@ -37,4 +37,25 @@ impl Container {
     pub fn save(&self) -> Result<()> {
         self.state.save(&self.root)
     }
+
+    pub fn set_pid(&self, pid: i32) -> Self {
+        Self::new(
+            self.state.id.as_str(),
+            self.state.status,
+            Some(pid),
+            &self.state.bundle.as_str(),
+            &self.root,
+        )
+        .expect("unexpected error")
+    }
+
+    pub fn update_status(&self, status: ContainerStatus) -> Result<Self> {
+        Self::new(
+            self.state.id.as_str(),
+            status,
+            self.state.pid,
+            self.state.bundle.as_str(),
+            &self.root,
+        )
+    }
 }
