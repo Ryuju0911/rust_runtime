@@ -1,4 +1,4 @@
-use std::os::fd::RawFd;
+use std::os::unix::io::RawFd;
 
 use anyhow::Result;
 use nix::fcntl::OFlag;
