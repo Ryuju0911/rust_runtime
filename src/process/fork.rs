@@ -38,6 +38,14 @@ pub fn fork_first<P: AsRef<Path>>(
                     }
                 }
 
+                /*
+                 * Deal with user namespaces first. They are quite special, as they
+                 * affect our ability to unshare other namespaces and are used as
+                 * context for privilege checks.
+                 *
+                 * Also, there are couple of inconsistency behaviour in vairous kernels,
+                 * unsharing alll namespaces together results into incorrect namespace object.
+                 */
                 if userns {
                     sched::unshare(sched::CloneFlags::CLONE_NEWUSER)?;
                 }

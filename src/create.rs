@@ -1,12 +1,20 @@
-use std::{fs, path::PathBuf};
+use std::fs;
+use std::path::{Path, PathBuf};
+use std::process;
 
 use anyhow::{bail, Result};
 use clap::Parser;
+use nix::fcntl;
+use nix::sched;
+use nix::sys::stat;
 use nix::unistd;
+use nix::unistd::{Gid, Uid};
 
 use crate::container::{Container, ContainerStatus};
 use crate::notify_socket::NotifyListener;
+use crate::process::{fork, Process};
 use crate::spec;
+use crate::stdio::FileDescriptor;
 use crate::tty;
 
 #[derive(Parser, Debug)]
@@ -59,6 +67,111 @@ impl Create {
             }
         };
 
+        let process = run_container(
+            self.pid_file.as_ref(),
+            &mut notify_socket,
+            &rootfs,
+            &spec,
+            csocketfd,
+            container,
+        )?;
+        if let Process::Parent(_) = process {
+            process::exit(0);
+        }
         Ok(())
     }
+
+}
+
+fn run_container<P: AsRef<Path>>(
+    pid_file: Option<P>,
+    notify_socket: &mut NotifyListener,
+    rootfs: &PathBuf,
+    spec: &spec::Spec,
+    csocketfd: Option<FileDescriptor>,
+    container: Container,
+) -> Result<Process>{
+    prctl::set_dumpable(false).unwrap();
+    let linux = spec.linux.as_ref().unwrap();
+
+    let mut cf = sched::CloneFlags::empty();
+    let mut to_enter = Vec::new();
+    for ns in &linux.namespaces {
+        let space = sched::CloneFlags::from_bits_truncate(ns.typ as i32);
+        if ns.path.is_empty() {
+            cf |= space;
+        } else {
+            let fd = fcntl::open(&*ns.path, fcntl::OFlag::empty(), stat::Mode::empty()).unwrap();
+            to_enter.push((space, fd));
+        }
+    }
+
+    match fork::fork_first(
+        pid_file,
+        cf.contains(sched::CloneFlags::CLONE_NEWUSER),
+        linux,
+        &container,
+    )? {
+        Process::Parent(parent) => Ok(Process::Parent(parent)),
+        Process::Child(child) => {
+            // if let Some(csocketfd) = csocketfd {
+            //     tty::ready(csocketfd)?;
+            // }
+
+            // join namepsaces
+            for &(space, fd) in &to_enter {
+                sched::setns(fd, space)?;
+                unistd::close(fd)?;
+                if space == sched::CloneFlags::CLONE_NEWUSER {
+                    setid(Uid::from_raw(0), Gid::from_raw(0))?;
+                }
+            }
+
+            // unshare other namespaces
+            sched::unshare(cf & !sched::CloneFlags::CLONE_NEWUSER)?;
+
+            /*
+			 * We fork again because of PID namespace, setns(2) or unshare(2) don't
+			 * change the PID namespace of the calling process, because doing so
+			 * would change the caller's idea of its own PID (as reported by getpid()),
+			 * which would break many applications and libraries, so we must fork
+			 * to actually enter the new PID namespace.
+			 */
+            match fork::fork_init(child)? {
+                Process::Child(child) => Ok(Process::Child(child)),
+                Process::Init(mut init) => {
+                    // futures::executor::block_on(rootfs::prepare_rootfs(
+                    //     spec,
+                    //     rootfs,
+                    //     cf.contains(sched::CloneFlags::CLONE_NEWUSER),
+                    // ))?;
+                    // rootfs::pivot_rootfs(&*rootfs)?;
+
+                    init.ready()?;
+
+                    notify_socket.wait_for_container_start()?;
+
+                    // utils::do_exec(&spec.process.args[0], &spec.process.args)?;
+                    container.update_status(ContainerStatus::Stopped)?.save()?;
+
+                    Ok(Process::Init(init))
+                }
+                Process::Parent(_) => unreachable!()
+            }
+        }
+        _ => unreachable!(),
+    }
+}
+
+fn setid(uid: Uid, gid: Gid) -> Result<()> {
+    if let Err(e) = prctl::set_keep_capabilities(true) {
+        bail!("set keep capabilities returned {}", e);
+    };
+
+    unistd::setresgid(gid, gid, gid)?;
+    unistd::setresuid(uid, uid, uid)?;
+    if let Err(e) = prctl::set_keep_capabilities(false) {
+        bail!("set keep capabilities returned {}", e);
+    };
+    Ok(())
 }
