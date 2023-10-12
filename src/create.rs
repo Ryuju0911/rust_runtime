@@ -13,6 +13,7 @@ use nix::unistd::{Gid, Uid};
 use crate::container::{Container, ContainerStatus};
 use crate::notify_socket::NotifyListener;
 use crate::process::{fork, Process};
+use crate::rootfs;
 use crate::spec;
 use crate::stdio::FileDescriptor;
 use crate::tty;
@@ -140,12 +141,12 @@ fn run_container<P: AsRef<Path>>(
             match fork::fork_init(child)? {
                 Process::Child(child) => Ok(Process::Child(child)),
                 Process::Init(mut init) => {
-                    // futures::executor::block_on(rootfs::prepare_rootfs(
-                    //     spec,
-                    //     rootfs,
-                    //     cf.contains(sched::CloneFlags::CLONE_NEWUSER),
-                    // ))?;
-                    // rootfs::pivot_rootfs(&*rootfs)?;
+                    futures::executor::block_on(rootfs::prepare_rootfs(
+                        spec,
+                        rootfs,
+                        cf.contains(sched::CloneFlags::CLONE_NEWUSER),
+                    ))?;
+                    rootfs::pivot_rootfs(&*rootfs)?;
 
                     init.ready()?;
 
