@@ -17,6 +17,7 @@ use crate::rootfs;
 use crate::spec;
 use crate::stdio::FileDescriptor;
 use crate::tty;
+use crate::utils;
 
 #[derive(Parser, Debug)]
 pub struct Create {
@@ -115,9 +116,9 @@ fn run_container<P: AsRef<Path>>(
     )? {
         Process::Parent(parent) => Ok(Process::Parent(parent)),
         Process::Child(child) => {
-            // if let Some(csocketfd) = csocketfd {
-            //     tty::ready(csocketfd)?;
-            // }
+            if let Some(csocketfd) = csocketfd {
+                tty::ready(csocketfd)?;
+            }
 
             // join namepsaces
             for &(space, fd) in &to_enter {
@@ -152,7 +153,7 @@ fn run_container<P: AsRef<Path>>(
 
                     notify_socket.wait_for_container_start()?;
 
-                    // utils::do_exec(&spec.process.args[0], &spec.process.args)?;
+                    utils::do_exec(&spec.process.args[0], &spec.process.args)?;
                     container.update_status(ContainerStatus::Stopped)?.save()?;
 
                     Ok(Process::Init(init))

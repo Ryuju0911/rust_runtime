@@ -1,4 +1,5 @@
 use std::os::unix::fs::symlink;
+use std::os::unix::io::AsRawFd;
 use std::path::PathBuf;
 
 use anyhow::{Result, bail};
@@ -6,8 +7,34 @@ use nix::errno::Errno;
 use nix::fcntl;
 use nix::sys::stat;
 use nix::sys::socket;
+use nix::unistd::{close, setsid};
 
+use crate::stdio;
 use crate::stdio::FileDescriptor;
+
+pub fn ready(console_fd: FileDescriptor) -> Result<()> {
+    let openpty_result = nix::pty::openpty(None, None)?;
+    let data: &[u8] = b"/dev/ptmx";
+    let iov = [nix::sys::uio::IoVec::from_slice(data)];
+    let fds = [openpty_result.master];
+    let cmsg = socket::ControlMessage::ScmRights(&fds);
+    socket::sendmsg(
+        console_fd.as_raw_fd(),
+        &iov,
+        &[cmsg],
+        socket::MsgFlags::empty(),
+        None,
+    )?;
+
+    setsid()?;
+    if unsafe { libc::ioctl(openpty_result.slave, libc::TIOCSCTTY) } < 0 {
+        log::warn!("could not TIOCSCTTY")
+    };
+    let slave = FileDescriptor::from(openpty_result.slave);
+    stdio::connect_stdio(&slave, &slave, &slave).expect("could not dup tty to stderr");
+    close(console_fd.as_raw_fd())?;
+    Ok(())
+}
 
 pub fn load_console_sockets(
     container_dir: &PathBuf,
