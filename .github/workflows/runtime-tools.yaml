@@ -30,6 +30,6 @@ jobs:
       - name: run create test
         run: |
           cd $(go env GOPATH)/src/github.com/opencontainers/runtime-tools
-          if [ 0 -ne $(sudo RUNTIME=$GITHUB_WORKSPACE/target/debug/rust-runtime ./validation/create/create.t | grep "not ok" | wc -l) ]; then
+          if [ 0 -ne $(sudo RUNTIME=$GITHUB_WORKSPACE/target/debug/rust_runtime ./validation/create/create.t | grep "not ok" | wc -l) ]; then
             exit 1
           fi
