@@ -78,6 +78,7 @@ impl Create {
             &mut container,
         )?;
         if let Process::Parent(_) = process {
+            log::debug!("{} was created", self.container_id);
             process::exit(0);
         }
         Ok(())

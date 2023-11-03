@@ -17,6 +17,7 @@ pub struct Delete {
 
 impl Delete {
     pub fn exec(&self, root_path: PathBuf) -> Result<()> {
+        let root_path = fs::canonicalize(root_path)?;
         let container_root = root_path.join(&self.container_id);
         if !container_root.exists() {
             bail!("{} doesn't exists.", self.container_id)
@@ -42,6 +43,7 @@ impl Delete {
             if container.root.exists() {
                 fs::remove_dir_all(&container.root)?;
             }
+            log::debug!("{} was deleted successfully", container.id());
             std::process::exit(0)
         } else {
             bail!(
