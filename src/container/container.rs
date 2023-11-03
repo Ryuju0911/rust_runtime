@@ -42,7 +42,7 @@ impl Container {
         self
     }
 
-    pub fn refresh_status(&self) -> Result<Self> {
+    pub fn refresh_status(&mut self) -> Result<()> {
         let new_status = match self.pid() {
             Some(pid) => {
                 if let Ok(proc) = Process::new(pid.as_raw()) {
@@ -60,7 +60,9 @@ impl Container {
             }
             None => ContainerStatus::Stopped,
         };
-        self.update_status(new_status)
+
+        self.set_status(new_status);
+        Ok(())
     }
 
     pub fn save(&self) -> Result<()> {
@@ -84,16 +86,6 @@ impl Container {
             &self.root,
         )
         .expect("unexpected error")
-    }
-
-    pub fn update_status(&self, status: ContainerStatus) -> Result<Self> {
-        Self::new(
-            self.state.id.as_str(),
-            status,
-            self.state.pid,
-            self.state.bundle.as_str(),
-            &self.root,
-        )
     }
 
     pub fn load(container_root: PathBuf) -> Result<Self> {
