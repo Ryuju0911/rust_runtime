@@ -21,7 +21,7 @@ pub fn fork_first<P: AsRef<Path>>(
     pid_file: Option<P>,
     userns: bool,
     linux: &spec::Linux,
-    container: &Container,
+    container: &mut Container,
 ) -> Result<Process> {
     let ccond = Cond::new()?;
 
@@ -59,7 +59,7 @@ pub fn fork_first<P: AsRef<Path>>(
 
                 let init_pid = parent.wait_for_child_ready()?;
                 container
-                    .update_status(ContainerStatus::Created)?
+                    .set_status(ContainerStatus::Created)
                     .set_pid(init_pid)
                     .save()?;
                 if let Some(pid_file) = pid_file {

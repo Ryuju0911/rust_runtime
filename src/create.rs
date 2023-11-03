@@ -46,7 +46,7 @@ impl Create {
         let container_dir = fs::canonicalize(container_dir)?;
         unistd::chdir(&*container_dir)?;
 
-        let container = Container::new(
+        let mut container = Container::new(
             &self.container_id,
             ContainerStatus::Creating,
             None,
@@ -75,7 +75,7 @@ impl Create {
             &rootfs,
             &spec,
             csocketfd,
-            container,
+            &mut container,
         )?;
         if let Process::Parent(_) = process {
             process::exit(0);
@@ -91,7 +91,7 @@ fn run_container<P: AsRef<Path>>(
     rootfs: &PathBuf,
     spec: &spec::Spec,
     csocketfd: Option<FileDescriptor>,
-    container: Container,
+    container: &mut Container,
 ) -> Result<Process>{
     prctl::set_dumpable(false).unwrap();
     let linux = spec.linux.as_ref().unwrap();
@@ -112,7 +112,7 @@ fn run_container<P: AsRef<Path>>(
         pid_file,
         cf.contains(sched::CloneFlags::CLONE_NEWUSER),
         linux,
-        &container,
+        container,
     )? {
         Process::Parent(parent) => Ok(Process::Parent(parent)),
         Process::Child(child) => {
@@ -154,7 +154,8 @@ fn run_container<P: AsRef<Path>>(
                     notify_socket.wait_for_container_start()?;
 
                     utils::do_exec(&spec.process.args[0], &spec.process.args)?;
-                    container.update_status(ContainerStatus::Stopped)?.save()?;
+                    container.set_status(ContainerStatus::Stopped);
+                    container.save()?;
 
                     Ok(Process::Init(init))
                 }

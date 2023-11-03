@@ -22,7 +22,8 @@ impl Delete {
             bail!("{} doesn't exists.", self.container_id)
         }
         
-        let mut container = Container::load(container_root)?.refresh_status()?;
+        let mut container = Container::load(container_root)?;
+        container.refresh_status()?;
         
         // Check if container is allowed to be deleted based on container status.
         match container.status() {
