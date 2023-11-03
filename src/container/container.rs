@@ -1,6 +1,9 @@
 use std::{fs, path::PathBuf};
 
 use anyhow::Result;
+use nix::unistd::Pid;
+use nix::sys::signal::{self, Signal};
+use procfs::process::Process;
 
 use crate::container::{ContainerStatus, State};
 
@@ -34,8 +37,42 @@ impl Container {
         self.state.status
     }
 
+    pub fn set_status(&mut self, status: ContainerStatus) -> &mut Self {
+        self.state.status = status;
+        self
+    }
+
+    pub fn refresh_status(&self) -> Result<Self> {
+        let new_status = match self.pid() {
+            Some(pid) => {
+                if let Ok(proc) = Process::new(pid.as_raw()) {
+                    use procfs::process::ProcState;
+                    match proc.stat.state().unwrap() {
+                        ProcState::Zombie | ProcState::Dead => ContainerStatus::Stopped,
+                        _ => match self.status() {
+                            ContainerStatus::Creating | ContainerStatus::Created => self.status(),
+                            _ => ContainerStatus::Running,
+                        },
+                    }
+                } else {
+                    ContainerStatus::Stopped
+                }
+            }
+            None => ContainerStatus::Stopped,
+        };
+        self.update_status(new_status)
+    }
+
     pub fn save(&self) -> Result<()> {
         self.state.save(&self.root)
+    }
+
+    pub fn can_delete(&self) -> bool {
+        self.state.status.can_delete()
+    }
+
+    pub fn pid(&self) -> Option<Pid> {
+        self.state.pid.map(Pid::from_raw)
     }
 
     pub fn set_pid(&self, pid: i32) -> Self {
@@ -57,5 +94,18 @@ impl Container {
             self.state.bundle.as_str(),
             &self.root,
         )
+    }
+
+    pub fn load(container_root: PathBuf) -> Result<Self> {
+        let state = State::load(&container_root)?;
+        Ok(Self {
+            state,
+            root: container_root,
+        })
+    }
+
+    pub fn do_kill(&mut self, sig: Signal) -> Result<()> {
+        signal::kill(self.pid().unwrap(), sig)?;
+        Ok(())
     }
 }

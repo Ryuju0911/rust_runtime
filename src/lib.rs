@@ -1,6 +1,7 @@
 pub mod container;
 pub mod cond;
 pub mod create;
+pub mod delete;
 pub mod logger;
 pub mod notify_socket;
 pub mod process;

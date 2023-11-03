@@ -4,6 +4,7 @@ use anyhow::Result;
 use clap::{Parser, Subcommand};
 
 use rust_runtime::create;
+use rust_runtime::delete;
 
 #[derive(Parser, Debug)]
 struct Opts {
@@ -20,12 +21,14 @@ struct Opts {
 #[derive(Subcommand, Debug)]
 enum SubCommand {
     Create(create::Create),
+    Delete(delete::Delete),
 }
 
 impl SubCommand {
     fn get_container_id(&self) -> &String {
         match &self {
             SubCommand::Create(create) => &create.container_id,
+            SubCommand::Delete(delete) => &delete.container_id,
         }
     }
 }
@@ -36,7 +39,9 @@ fn main() -> Result<()> {
 
     let root_path = PathBuf::from(&opts.root);
     fs::create_dir_all(&root_path)?;
+
     match opts.subcmd {
-        SubCommand::Create(create) => create.exec(root_path)
+        SubCommand::Create(create) => create.exec(root_path),
+        SubCommand::Delete(delete) => delete.exec(root_path),
     }
 }
