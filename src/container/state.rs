@@ -23,6 +23,12 @@ pub enum ContainerStatus {
     Stopped,
 }
 
+impl ContainerStatus {
+    pub fn can_delete(&self) -> bool {
+        matches!(self, ContainerStatus::Stopped)
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct State {
