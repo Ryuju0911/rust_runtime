@@ -9,6 +9,7 @@ pub mod process;
 pub mod rootfs;
 pub mod signal;
 pub mod spec;
+pub mod start;
 pub mod stdio;
 pub mod tty;
 pub mod utils;
