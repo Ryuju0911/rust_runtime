@@ -69,6 +69,10 @@ impl Container {
         self.state.save(&self.root)
     }
 
+    pub fn can_kill(&self) -> bool {
+        self.state.status.can_kill()
+    }
+
     pub fn can_delete(&self) -> bool {
         self.state.status.can_delete()
     }
