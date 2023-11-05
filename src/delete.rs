@@ -44,7 +44,7 @@ impl Delete {
             if container.root.exists() {
                 fs::remove_dir_all(&container.root)?;
             }
-            log::debug!("{} was deleted successfully", container.id());
+            println!("{} was deleted successfully", container.id());
             std::process::exit(0)
         } else {
             bail!(
