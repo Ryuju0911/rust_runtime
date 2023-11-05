@@ -24,6 +24,10 @@ pub enum ContainerStatus {
 }
 
 impl ContainerStatus {
+    pub fn can_start(&self) -> bool {
+        matches!(self, ContainerStatus::Created)
+    }
+
     pub fn can_kill(&self) -> bool {
         use ContainerStatus::*;
         match self {
