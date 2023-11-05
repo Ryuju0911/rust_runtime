@@ -28,7 +28,7 @@ impl Kill {
             nix_signal::kill(container.pid().unwrap(), sig)?;
             container.set_status(ContainerStatus::Stopped).save()?;
 
-            println!("{} was killed.", self.container_id);
+            log::debug!("{} was killed.", self.container_id);
 
             std::process::exit(0)
         } else {
