@@ -32,6 +32,7 @@ pub struct Create {
 
 impl Create {
     pub fn exec(&self, root_path: PathBuf) -> Result<()> {
+        println!("{} is being created...", self.container_id);
         let container_dir = root_path.join(&self.container_id);
         if !container_dir.exists() {
             fs::create_dir(&container_dir).unwrap();
@@ -78,7 +79,7 @@ impl Create {
             &mut container,
         )?;
         if let Process::Parent(_) = process {
-            log::debug!("{} was created", self.container_id);
+            println!("{} was successfully created", self.container_id);
             process::exit(0);
         }
         Ok(())

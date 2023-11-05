@@ -27,6 +27,9 @@ impl Kill {
             let sig = signal::from_str(&self.signal.as_str())?;
             nix_signal::kill(container.pid().unwrap(), sig)?;
             container.set_status(ContainerStatus::Stopped).save()?;
+
+            println!("{} was killed.", self.container_id);
+
             std::process::exit(0)
         } else {
             bail!(

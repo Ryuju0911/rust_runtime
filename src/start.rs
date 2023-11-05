@@ -13,6 +13,7 @@ pub struct Start {
 
 impl Start {
     pub fn exec(&self, root_path: PathBuf) -> Result<()> {
+        println!("{} is starting.", self.container_id);
         let container_root = root_path.join(&self.container_id);
         if !container_root.exists() {
             bail!("{} doesn't exists.", self.container_id)
@@ -37,6 +38,7 @@ impl Start {
         container.set_status(ContainerStatus::Running);
         container.save()?;
 
+        println!("{} started.", self.container_id);
         Ok(())
     }
 }
