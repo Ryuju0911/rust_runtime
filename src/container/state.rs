@@ -24,6 +24,14 @@ pub enum ContainerStatus {
 }
 
 impl ContainerStatus {
+    pub fn can_kill(&self) -> bool {
+        use ContainerStatus::*;
+        match self {
+            Creating | Stopped => false,
+            Created | Running => true,
+        }
+    }
+
     pub fn can_delete(&self) -> bool {
         matches!(self, ContainerStatus::Stopped)
     }

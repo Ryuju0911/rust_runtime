@@ -26,34 +26,32 @@ impl Delete {
         let mut container = Container::load(container_root)?;
         container.refresh_status()?;
         fs::remove_dir_all(&container.root)?;
-        log::debug!("{} was deleted successfully", container.id());
-        std::process::exit(0)
         
-        // // Check if container is allowed to be deleted based on container status.
-        // match container.status() {
-        //     ContainerStatus::Stopped => {}
-        //     _ => {
-        //         // Containers can't be deleted while in these status, unless
-        //         // force flag is set. In the force case, we need to clean up any
-        //         // processes associated with containers.
-        //         if self.force {
-        //             container.do_kill(signal::Signal::SIGKILL)?;
-        //             container.set_status(ContainerStatus::Stopped).save()?;
-        //         } 
-        //     }
-        // }
-        // if container.can_delete() {
-        //     if container.root.exists() {
-        //         fs::remove_dir_all(&container.root)?;
-        //     }
-        //     log::debug!("{} was deleted successfully", container.id());
-        //     std::process::exit(0)
-        // } else {
-        //     bail!(
-        //         "{} could not be deleted because it was {:?}",
-        //         container.id(),
-        //         container.status()
-        //     )
-        // }
+        // Check if container is allowed to be deleted based on container status.
+        match container.status() {
+            ContainerStatus::Stopped => {}
+            _ => {
+                // Containers can't be deleted while in these status, unless
+                // force flag is set. In the force case, we need to clean up any
+                // processes associated with containers.
+                if self.force {
+                    container.do_kill(signal::Signal::SIGKILL)?;
+                    container.set_status(ContainerStatus::Stopped).save()?;
+                } 
+            }
+        }
+        if container.can_delete() {
+            if container.root.exists() {
+                fs::remove_dir_all(&container.root)?;
+            }
+            log::debug!("{} was deleted successfully", container.id());
+            std::process::exit(0)
+        } else {
+            bail!(
+                "{} could not be deleted because it was {:?}",
+                container.id(),
+                container.status()
+            )
+        }
     }
 }

@@ -5,6 +5,7 @@ use clap::{Parser, Subcommand};
 
 use rust_runtime::create;
 use rust_runtime::delete;
+use rust_runtime::kill;
 
 #[derive(Parser, Debug)]
 struct Opts {
@@ -22,6 +23,7 @@ struct Opts {
 enum SubCommand {
     Create(create::Create),
     Delete(delete::Delete),
+    Kill(kill::Kill),
 }
 
 impl SubCommand {
@@ -29,6 +31,7 @@ impl SubCommand {
         match &self {
             SubCommand::Create(create) => &create.container_id,
             SubCommand::Delete(delete) => &delete.container_id,
+            SubCommand::Kill(kill) => &kill.container_id,
         }
     }
 }
@@ -43,5 +46,6 @@ fn main() -> Result<()> {
     match opts.subcmd {
         SubCommand::Create(create) => create.exec(root_path),
         SubCommand::Delete(delete) => delete.exec(root_path),
+        SubCommand::Kill(kill) => kill.exec(root_path),
     }
 }
