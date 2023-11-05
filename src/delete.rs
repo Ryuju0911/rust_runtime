@@ -25,7 +25,6 @@ impl Delete {
         
         let mut container = Container::load(container_root)?;
         container.refresh_status()?;
-        fs::remove_dir_all(&container.root)?;
         
         // Check if container is allowed to be deleted based on container status.
         match container.status() {
