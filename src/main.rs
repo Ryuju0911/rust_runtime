@@ -9,6 +9,7 @@ use rust_runtime::create;
 use rust_runtime::start;
 use rust_runtime::delete;
 use rust_runtime::kill;
+use rust_runtime::stop;
 
 #[derive(Parser, Debug)]
 struct Opts {
@@ -28,6 +29,7 @@ enum SubCommand {
     Start(start::Start),
     Delete(delete::Delete),
     Kill(kill::Kill),
+    Stop(stop::Stop),
 }
 
 impl SubCommand {
@@ -37,6 +39,7 @@ impl SubCommand {
             SubCommand::Start(start) => &start.container_id,
             SubCommand::Delete(delete) => &delete.container_id,
             SubCommand::Kill(kill) => &kill.container_id,
+            SubCommand::Stop(stop) => &stop.container_id,
         }
     }
 }
@@ -56,5 +59,6 @@ fn main() -> Result<()> {
         SubCommand::Start(start) => start.exec(root_path),
         SubCommand::Delete(delete) => delete.exec(root_path),
         SubCommand::Kill(kill) => kill.exec(root_path),
+        SubCommand::Stop(stop) => stop.exec(root_path),
     }
 }
