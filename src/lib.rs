@@ -11,6 +11,7 @@ pub mod rootfs;
 pub mod signal;
 pub mod spec;
 pub mod start;
+pub mod state;
 pub mod stdio;
 pub mod stop;
 pub mod tty;
