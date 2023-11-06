@@ -8,12 +8,12 @@ use nix::fcntl;
 use nix::sched;
 use nix::sys::stat;
 use nix::unistd;
-use nix::unistd::{Gid, Uid};
+use nix::unistd::{sethostname, Gid, Uid};
 
 use crate::container::{Container, ContainerStatus};
 use crate::notify_socket::NotifyListener;
 use crate::process::{fork, Process};
-use crate::rootfs;
+use crate::{rootfs, capabilities};
 use crate::spec;
 use crate::stdio::FileDescriptor;
 use crate::tty;
@@ -118,21 +118,12 @@ fn run_container<P: AsRef<Path>>(
     )? {
         Process::Parent(parent) => Ok(Process::Parent(parent)),
         Process::Child(child) => {
+            setid(Uid::from_raw(0), Gid::from_raw(0))?;
             if let Some(csocketfd) = csocketfd {
                 tty::ready(csocketfd)?;
             }
 
-            // join namepsaces
-            for &(space, fd) in &to_enter {
-                sched::setns(fd, space)?;
-                unistd::close(fd)?;
-                if space == sched::CloneFlags::CLONE_NEWUSER {
-                    setid(Uid::from_raw(0), Gid::from_raw(0))?;
-                }
-            }
-
-            // unshare other namespaces
-            sched::unshare(cf & !sched::CloneFlags::CLONE_NEWUSER)?;
+            sched::unshare(sched::CloneFlags::CLONE_NEWPID)?;
 
             /*
 			 * We fork again because of PID namespace, setns(2) or unshare(2) don't
@@ -144,6 +135,19 @@ fn run_container<P: AsRef<Path>>(
             match fork::fork_init(child)? {
                 Process::Child(child) => Ok(Process::Child(child)),
                 Process::Init(mut init) => {
+                    // join namepsaces
+                    for &(space, fd) in &to_enter {
+                        sched::setns(fd, space)?;
+                        unistd::close(fd)?;
+                        if space == sched::CloneFlags::CLONE_NEWUSER {
+                            setid(Uid::from_raw(0), Gid::from_raw(0))?;
+                        }
+                    }
+
+                    sched::unshare(
+                        cf & !sched::CloneFlags::CLONE_NEWUSER & !sched::CloneFlags::CLONE_NEWPID,
+                    )?;
+
                     futures::executor::block_on(rootfs::prepare_rootfs(
                         spec,
                         rootfs,
@@ -154,7 +158,29 @@ fn run_container<P: AsRef<Path>>(
                     init.ready()?;
 
                     notify_socket.wait_for_container_start()?;
+                    if spec.process.no_new_privileges {
+                        let _ = prctl::set_no_new_privileges(true);
+                    }
 
+                    // set hostname and environment value
+                    sethostname(&spec.hostname)?;
+                    utils::set_env_val(&spec.process.env);
+
+                    setid(
+                        Uid::from_raw(spec.process.user.uid),
+                        Gid::from_raw(spec.process.user.gid)
+                    )?;
+                    
+                    capabilities::reset_effective()?;
+                    if let Some(caps) = &spec.process.capabilities {
+                        capabilities::set_capabilities(&caps)?;
+                    }
+
+                    // set rlimits
+                    for rlimit in &spec.process.rlimits {
+                        utils::set_rlimits(rlimit)?;
+                    }
+                    
                     utils::do_exec(&spec.process.args[0], &spec.process.args)?;
                     container.set_status(ContainerStatus::Stopped);
                     container.save()?;
