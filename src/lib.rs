@@ -12,5 +12,6 @@ pub mod signal;
 pub mod spec;
 pub mod start;
 pub mod stdio;
+pub mod stop;
 pub mod tty;
 pub mod utils;

@@ -180,7 +180,7 @@ fn run_container<P: AsRef<Path>>(
                     for rlimit in &spec.process.rlimits {
                         utils::set_rlimits(rlimit)?;
                     }
-                    
+
                     utils::do_exec(&spec.process.args[0], &spec.process.args)?;
                     container.set_status(ContainerStatus::Stopped);
                     container.save()?;
@@ -201,6 +201,9 @@ fn setid(uid: Uid, gid: Gid) -> Result<()> {
 
     unistd::setresgid(gid, gid, gid)?;
     unistd::setresuid(uid, uid, uid)?;
+    if uid != Uid::from_raw(0) {
+        capabilities::reset_effective()?;
+    }
     if let Err(e) = prctl::set_keep_capabilities(false) {
         bail!("set keep capabilities returned {}", e);
     };
