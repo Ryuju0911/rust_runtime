@@ -1,3 +1,4 @@
+pub mod capabilities;
 pub mod container;
 pub mod cond;
 pub mod create;
