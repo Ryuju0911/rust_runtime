@@ -23,18 +23,18 @@ struct Opts {
 #[derive(Subcommand, Debug)]
 enum SubCommand {
     Create(create::Create),
-    Start(start::Start),
+    //Start(start::Start),
     Delete(delete::Delete),
-    //Kill(kill::Kill),
+    Kill(kill::Kill),
 }
 
 impl SubCommand {
     fn get_container_id(&self) -> &String {
         match &self {
             SubCommand::Create(create) => &create.container_id,
-            SubCommand::Start(start) => &start.container_id,
+            //SubCommand::Start(start) => &start.container_id,
             SubCommand::Delete(delete) => &delete.container_id,
-            //SubCommand::Kill(kill) => &kill.container_id,
+            SubCommand::Kill(kill) => &kill.container_id,
         }
     }
 }
@@ -48,8 +48,8 @@ fn main() -> Result<()> {
 
     match opts.subcmd {
         SubCommand::Create(create) => create.exec(root_path),
-        SubCommand::Start(start) => start.exec(root_path),
+        //SubCommand::Start(start) => start.exec(root_path),
         SubCommand::Delete(delete) => delete.exec(root_path),
-        //SubCommand::Kill(kill) => kill.exec(root_path),
+        SubCommand::Kill(kill) => kill.exec(root_path),
     }
 }
