@@ -1,7 +1,9 @@
+use std::env;
 use std::{path::PathBuf, fs};
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
+use env_logger;
 
 use rust_runtime::create;
 use rust_runtime::start;
@@ -23,7 +25,7 @@ struct Opts {
 #[derive(Subcommand, Debug)]
 enum SubCommand {
     Create(create::Create),
-    //Start(start::Start),
+    Start(start::Start),
     Delete(delete::Delete),
     Kill(kill::Kill),
 }
@@ -32,7 +34,7 @@ impl SubCommand {
     fn get_container_id(&self) -> &String {
         match &self {
             SubCommand::Create(create) => &create.container_id,
-            //SubCommand::Start(start) => &start.container_id,
+            SubCommand::Start(start) => &start.container_id,
             SubCommand::Delete(delete) => &delete.container_id,
             SubCommand::Kill(kill) => &kill.container_id,
         }
@@ -40,6 +42,9 @@ impl SubCommand {
 }
 
 fn main() -> Result<()> {
+    env::set_var("RUST_LOG", "debug");
+    env_logger::init();
+    
     let opts = Opts::parse();
     rust_runtime::logger::init(opts.subcmd.get_container_id().as_str(), opts.log)?;
 
@@ -48,7 +53,7 @@ fn main() -> Result<()> {
 
     match opts.subcmd {
         SubCommand::Create(create) => create.exec(root_path),
-        //SubCommand::Start(start) => start.exec(root_path),
+        SubCommand::Start(start) => start.exec(root_path),
         SubCommand::Delete(delete) => delete.exec(root_path),
         SubCommand::Kill(kill) => kill.exec(root_path),
     }
