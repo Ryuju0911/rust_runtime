@@ -1,0 +1,35 @@
+on:
+  push:
+    branches:
+      - "*"
+  pull_request:
+    branches:
+      - "*"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
+      - name: build rust-runtime
+        run: |
+          cargo build
+      - uses: actions/setup-go@v2
+        with:
+          go-version: "1.17"
+      - name: build runtime-tools
+        run: |
+          mkdir -p $(go env GOPATH)/src/github.com/opencontainers
+          cd $(go env GOPATH)/src/github.com/opencontainers
+          git clone https://github.com/opencontainers/runtime-tools
+          cd runtime-tools
+          make runtimetest validation-executables
+      - name: run delete test
+        run: |
+          cd $(go env GOPATH)/src/github.com/opencontainers/runtime-tools
+          if [ 0 -ne $(sudo RUNTIME=$GITHUB_WORKSPACE/target/debug/rust_runtime ./validation/delete/delete.t | grep "not ok" | wc -l) ]; then
+            exit 1
+          fi

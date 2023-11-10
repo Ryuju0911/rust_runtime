@@ -8,12 +8,12 @@ use nix::fcntl;
 use nix::sched;
 use nix::sys::stat;
 use nix::unistd;
-use nix::unistd::{Gid, Uid};
+use nix::unistd::{sethostname, Gid, Uid};
 
 use crate::container::{Container, ContainerStatus};
 use crate::notify_socket::NotifyListener;
 use crate::process::{fork, Process};
-use crate::rootfs;
+use crate::{rootfs, capabilities};
 use crate::spec;
 use crate::stdio::FileDescriptor;
 use crate::tty;
@@ -32,6 +32,7 @@ pub struct Create {
 
 impl Create {
     pub fn exec(&self, root_path: PathBuf) -> Result<()> {
+        log::debug!("{} is being created...", self.container_id);
         let container_dir = root_path.join(&self.container_id);
         if !container_dir.exists() {
             fs::create_dir(&container_dir).unwrap();
@@ -46,7 +47,7 @@ impl Create {
         let container_dir = fs::canonicalize(container_dir)?;
         unistd::chdir(&*container_dir)?;
 
-        let container = Container::new(
+        let mut container = Container::new(
             &self.container_id,
             ContainerStatus::Creating,
             None,
@@ -75,9 +76,10 @@ impl Create {
             &rootfs,
             &spec,
             csocketfd,
-            container,
+            &mut container,
         )?;
         if let Process::Parent(_) = process {
+            log::debug!("{} was successfully created", self.container_id);
             process::exit(0);
         }
         Ok(())
@@ -91,7 +93,7 @@ fn run_container<P: AsRef<Path>>(
     rootfs: &PathBuf,
     spec: &spec::Spec,
     csocketfd: Option<FileDescriptor>,
-    container: Container,
+    container: &mut Container,
 ) -> Result<Process>{
     prctl::set_dumpable(false).unwrap();
     let linux = spec.linux.as_ref().unwrap();
@@ -112,25 +114,16 @@ fn run_container<P: AsRef<Path>>(
         pid_file,
         cf.contains(sched::CloneFlags::CLONE_NEWUSER),
         linux,
-        &container,
+        container,
     )? {
         Process::Parent(parent) => Ok(Process::Parent(parent)),
         Process::Child(child) => {
+            setid(Uid::from_raw(0), Gid::from_raw(0))?;
             if let Some(csocketfd) = csocketfd {
                 tty::ready(csocketfd)?;
             }
 
-            // join namepsaces
-            for &(space, fd) in &to_enter {
-                sched::setns(fd, space)?;
-                unistd::close(fd)?;
-                if space == sched::CloneFlags::CLONE_NEWUSER {
-                    setid(Uid::from_raw(0), Gid::from_raw(0))?;
-                }
-            }
-
-            // unshare other namespaces
-            sched::unshare(cf & !sched::CloneFlags::CLONE_NEWUSER)?;
+            sched::unshare(sched::CloneFlags::CLONE_NEWPID)?;
 
             /*
 			 * We fork again because of PID namespace, setns(2) or unshare(2) don't
@@ -142,6 +135,19 @@ fn run_container<P: AsRef<Path>>(
             match fork::fork_init(child)? {
                 Process::Child(child) => Ok(Process::Child(child)),
                 Process::Init(mut init) => {
+                    // join namepsaces
+                    for &(space, fd) in &to_enter {
+                        sched::setns(fd, space)?;
+                        unistd::close(fd)?;
+                        if space == sched::CloneFlags::CLONE_NEWUSER {
+                            setid(Uid::from_raw(0), Gid::from_raw(0))?;
+                        }
+                    }
+
+                    sched::unshare(
+                        cf & !sched::CloneFlags::CLONE_NEWUSER & !sched::CloneFlags::CLONE_NEWPID,
+                    )?;
+
                     futures::executor::block_on(rootfs::prepare_rootfs(
                         spec,
                         rootfs,
@@ -152,9 +158,32 @@ fn run_container<P: AsRef<Path>>(
                     init.ready()?;
 
                     notify_socket.wait_for_container_start()?;
+                    if spec.process.no_new_privileges {
+                        let _ = prctl::set_no_new_privileges(true);
+                    }
+
+                    // set hostname and environment value
+                    sethostname(&spec.hostname)?;
+                    utils::set_env_val(&spec.process.env);
+
+                    setid(
+                        Uid::from_raw(spec.process.user.uid),
+                        Gid::from_raw(spec.process.user.gid)
+                    )?;
+                    
+                    capabilities::reset_effective()?;
+                    if let Some(caps) = &spec.process.capabilities {
+                        capabilities::set_capabilities(&caps)?;
+                    }
+
+                    // set rlimits
+                    for rlimit in &spec.process.rlimits {
+                        utils::set_rlimits(rlimit)?;
+                    }
 
                     utils::do_exec(&spec.process.args[0], &spec.process.args)?;
-                    container.update_status(ContainerStatus::Stopped)?.save()?;
+                    container.set_status(ContainerStatus::Stopped);
+                    container.save()?;
 
                     Ok(Process::Init(init))
                 }
@@ -172,6 +201,9 @@ fn setid(uid: Uid, gid: Gid) -> Result<()> {
 
     unistd::setresgid(gid, gid, gid)?;
     unistd::setresuid(uid, uid, uid)?;
+    if uid != Uid::from_raw(0) {
+        capabilities::reset_effective()?;
+    }
     if let Err(e) = prctl::set_keep_capabilities(false) {
         bail!("set keep capabilities returned {}", e);
     };

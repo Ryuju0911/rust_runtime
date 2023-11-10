@@ -16,6 +16,12 @@ impl AsRawFd for FileDescriptor {
     }
 }
 
+impl From<u8> for FileDescriptor {
+    fn from(rawfd: u8) -> Self {
+        FileDescriptor(RawFd::from(rawfd))
+    }
+}
+
 impl From<RawFd> for FileDescriptor {
     fn from(fd: RawFd) -> Self {
         FileDescriptor(fd)
